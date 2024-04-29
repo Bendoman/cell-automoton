@@ -236,8 +236,11 @@ function recenter_onclick() {
     priorityDraw();
 }
 
-
-
+function reset_zoom_onclick() {
+    displayRowCount = 9*10;
+    displayColumnCount = 16*10;
+    priorityDraw();
+}
 //#endregion
 
 //#region ( Helper Functions )

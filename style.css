@@ -3,6 +3,8 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+
+    font-family: sans-serif;
 }
 
 #content {
@@ -20,7 +22,6 @@
     width: 20vw;
     height: 100vh;
 }
-
 
 #sidebar.expanded {
     background-color: #DCE0D9;
@@ -51,11 +52,20 @@
     overflow-x: hidden;
 }
 
+#tooltip {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    bottom: 1em;
+    color: #343d46;
+}
+
 .sidebar_item {
     position: relative;
     width: 80%;
     border-bottom: 1px dashed #343d465e;
     padding: 0.5em;
+    color: #343d46;
 }
 
 .sidebar_item input[type="checkbox"] {
