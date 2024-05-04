@@ -13,22 +13,32 @@
             <svg id="sidebar_expand" onclick="expand_onclick()" 
             xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left-from-line"><path d="m9 6-6 6 6 6"/><path d="M3 12h14"/><path d="M21 19V5"/></svg>
 
-            <div id="sidebar" class="expanded">
-
-                
-                <div id="controls_container">
-                    <svg onclick="pause_onclick()" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pause"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>
-                  
-                    <svg onclick="play_onclick()" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            <div id="controls_container">
+                <svg 
+                id="pause_svg"
+                onclick="pause_onclick()" 
+                xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pause"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>
     
-                    <svg onclick="fastforward_onclick()" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-fast-forward"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+                <svg 
+                id="play_svg"
+                onclick="play_onclick()" 
+                xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>
 
-                    <p id="fastforward_counter">1</p>
-                </div>
-                
+                <svg 
+                id="rewind_svg"
+                onclick="rewind_onclick()"
+                xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-rewind"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
+
+                <svg 
+                id="fastforward_svg"
+                onclick="fastforward_onclick()" 
+                xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-fast-forward"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+            </div>
+
+            <div id="sidebar" class="expanded">
                 <svg id="sidebar_collapse" onclick="collapse_onclick()" 
                 xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right-from-line"><path d="M3 5v14"/><path d="M21 12H7"/><path d="m15 18 6-6-6-6"/></svg>
-
+                
                 <div id="sidebar_content">
                     <div class="sidebar_item">
                         <input id="clear_grid_button" type="button" value="Clear Grid" onclick="clear_grid_onclick()">
@@ -45,18 +55,16 @@
                     <div class="sidebar_item">
                         <input id="reset_zoom_button" type="button" value="Reset Zoom" onclick="reset_zoom_onclick()">
                     </div>
-                    
 
                     <div class="sidebar_item">
                         Trail
                         <input id="trail_toggle_checkbox" 
                         type="checkbox" onclick="trail_toggle_onclick()">
                     </div>
-
-                    <div id="tooltip">
-                        Press R to rotate automoton placement
-                    </div>
-
+                </div>
+                
+                <div id="tooltip">
+                    Press R to rotate automoton placement
                 </div>
             </div>
         </div>

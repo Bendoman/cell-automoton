@@ -3,8 +3,8 @@
 // Select from preset starter builds and save their own for later. 
 
 //#region ( Canvas Setup )
-var canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas'));
-var ctx = canvas.getContext("2d");
+let canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas'));
+let ctx = canvas.getContext("2d");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -16,15 +16,21 @@ window.addEventListener("resize", (e) => {
 //#endregion
 
 //#region ( Elements )
-var lock_toggle_on = false;
-var toggle = document.getElementById("sidebar_expand");
-var canvas_container = document.getElementById("canvas_container");
-var sidebar = document.getElementById("sidebar");
+let lock_toggle_on = false;
+let toggle = document.getElementById("sidebar_expand");
+let canvas_container = document.getElementById("canvas_container");
+let sidebar = document.getElementById("sidebar");
 
-var fastforward_counter = document.getElementById("fastforward_counter");
-var trail_toggle_checkbox = document.getElementById("trail_toggle_checkbox");
+let fastforward_counter = document.getElementById("fastforward_counter");
+let trail_toggle_checkbox = document.getElementById("trail_toggle_checkbox");
 trail_toggle_checkbox.checked = false;
-var clear_grid_button = document.getElementById("clear_grid_button");
+let clear_grid_button = document.getElementById("clear_grid_button");
+
+let play_svg = document.getElementById("play_svg");
+let pause_svg = document.getElementById("pause_svg");
+let rewind_svg = document.getElementById("rewind_svg");
+let fastforward_svg = document.getElementById("fastforward_svg");
+let controls_container = document.getElementById("controls_container");
 //#endregion
 
 //#region ( Helper Methods )
@@ -34,7 +40,7 @@ function getCursorPosition(canvas, event) {
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
 
-    var mousePos = {
+    let mousePos = {
       x: x,
       y: y
     };
@@ -44,43 +50,48 @@ function getCursorPosition(canvas, event) {
 //#endregion
 
 //#region ( Variables )
-var cellSize = 35;
-var boardOriginX = 0;
-var boardOriginY = 0; 
-var cellFillOpacity = 0.75;
+let cellSize = 35;
+let boardOriginX = 0;
+let boardOriginY = 0; 
+let cellFillOpacity = 0.75;
 
-var imageScaling = 1;
-var scrollSpeed = 2;
-// var zoomspeed = 5;
-var gameSpeed = 100;
-var paused = false;
+let imageScaling = 1;
+let scrollSpeed = 2;
+// let zoomspeed = 5;
+let baseTickDelay = 100;
+let tickDelay = baseTickDelay;
+let counterValue = 7;
+
+let delayIncrement = 25;
+
+let paused = false;
 
 
-var debugOptions = false;
-var outlineCells = false;
+let debugOptions = false;
+let outlineCells = false;
 
 // Grid variables
-var rowCount = 86;
-var columnCount = 156;
+let rowCount = 500;
+let columnCount = 500;
 
-var displayRowCount = 9*10;
-var displayColumnCount = 16*10;
+let displayRowCount = 9*10;
+let displayColumnCount = 16*10;
 
-var originX = -2;
-var originY = -2;
+let originX = -2;
+let originY = -2;
 
 // Color code values
 // TODO Color fadeout, very easy.
-var minColorValue = 25;
-var colorIncrement = 15;
-var decayRate = 2.5;
-var decayToggle = false;
+let minColorValue = 25;
+let colorIncrement = 15;
+let decayRate = 2.5;
+let decayToggle = false;
 
-var backgroundColor = '#343d46';
-var strokeColor = '#FFF';
-var highlightColor = "rgb(255, 100, 0)"
+let backgroundColor = '#343d46';
+let strokeColor = '#FFF';
+let highlightColor = "rgb(255, 100, 0)"
 
-var rotation = 1;
+let rotation = 1;
 
 //#region ( TODO Board )
 // TODO Interpret JSON object as automoton
@@ -88,6 +99,31 @@ var rotation = 1;
 // TODO Display ghost of automoton to place
 // TODO Section to the side, css transition on collapse animation.
 // TODO Update canvas size accordingly
+// TODO Scroll based on number of cells dragged across
+
+// TODO Remove width definition from elements so that it is responsive
+// TODO Birth on phone pointerup at x and y
+// TODO Pinch zoom for phone
+
+// TODO Fix sidebar content scrolling
+
+// TODO Split live cell rules and read cell rules into seperate functions
+
+// TODO Pause returns gamespeed to previous and add a slowdown button
+
+// TODO Check live cell and all its dead neighbors instead of every single cell.
+
+// TODO Have reset grid set it back to what it was before playing the simulation ( If paused and cleared ) 
+// TODO Extended, have STOP button to make this more clear, with tooltip.
+// TODO ctrl z + ctrl y ( Only works while paused )
+
+// TODO Drag to spawn option
+// TODO rick click to delete
+
+
+// TODO:DONE Highlight selected playback option
+
+// TODO Fix reset grid pause bug 
 //#endregion
 
 
@@ -95,33 +131,30 @@ var rotation = 1;
 
 // To zoom in or out, create a new grid with the updated row and column count and transpose the old onto new 
 // ( smaller grid can be applied directly overtop, smaller grid much the same just with check to see if index exists )
-var grid = [...Array(rowCount)].map(e => Array(columnCount).fill(0));
-
-var rectWidth;
-var rectHeight;
+let rectWidth;
+let rectHeight;
 
 //#region ( Event Listeners )
 window.addEventListener("resize", (e) => { priorityDraw(); });
 
 //#region ( Failed Drag to Move )
-// var dragActive = false; 
+// let dragActive = false; 
 canvas.addEventListener("pointerdown", (e) => {
     if(highlightedCell != null) {
-        // birthCell(highlightedCell[0], highlightedCell[1]);
         createGlider(highlightedCell[0], highlightedCell[1], rotation);
     }
 });
 
 // window.addEventListener("pointerup", (e) => { dragActive = false; });
 
-var mouseX;
-var mouseY;
+let mouseX;
+let mouseY;
 canvas.addEventListener("pointermove", (e) => {
-    var mousePos = getCursorPosition(canvas, e);
+    let mousePos = getCursorPosition(canvas, e);
     mouseX = mousePos.x;
     mouseY = mousePos.y;
 
-    priorityDraw()
+    // priorityDraw()
 });
 //#endregion
 
@@ -141,16 +174,18 @@ window.addEventListener("keypress", (e) => {
     if(e.code == "Space") {
         paused = !paused
 
-        if(paused)
-            fastforward_counter.innerHTML = 0;
-        else 
-            fastforward_counter.innerHTML = 1;
-        
-        gameSpeed = 100;
+        if(paused) {
+            play_svg.classList.remove("controls_selected");
+        } else {
+            play_svg.classList.add("controls_selected");
+        }
+         
+        pause_svg.classList.toggle("controls_selected");
     }
 });
 
-var map = {};
+
+let map = {};
 window.addEventListener("keydown", (e) => {
     map[e.code] = e.type == 'keydown';
 
@@ -191,39 +226,63 @@ function collapse_onclick() {
 }
 
 function pause_onclick() { 
+    play_svg.classList.remove("controls_selected");
+    rewind_svg.classList.remove("controls_selected");
+    fastforward_svg.classList.remove("controls_selected");
+    
+    pause_svg.classList.add("controls_selected");
+
     paused = true; 
-    fastforward_counter.innerHTML = 0;
-    gameSpeed = 100
 }
 
 function play_onclick() { 
-    paused = false; 
-    gameSpeed = 100
+    pause_svg.classList.remove("controls_selected");
+    fastforward_svg.classList.remove("controls_selected");
+    rewind_svg.classList.remove("controls_selected");
+    
+    play_svg.classList.add("controls_selected");
 
-    fastforward_counter.innerHTML = 1;
+    paused = false; 
 }
 
 function fastforward_onclick() { 
+    if(paused) {
+        pause_svg.classList.remove("controls_selected");
+        play_svg.classList.add("controls_selected");
+    }
     paused = false; 
 
-    if(gameSpeed > 1) {
-        gameSpeed -= 25;
-        fastforward_counter.innerHTML = parseInt(fastforward_counter.innerHTML) + 1;
+    if(tickDelay - delayIncrement < 10) 
+        return;
+
+    tickDelay -= delayIncrement;
+}
+
+function rewind_onclick() {
+    if(paused) {
+        pause_svg.classList.remove("controls_selected");
+        play_svg.classList.add("controls_selected");
     }
+    paused = false; 
+    
+    if(tickDelay + delayIncrement > 300)
+        return;
+
+    tickDelay += delayIncrement;
 }
 
 function trail_toggle_onclick() { decayToggle = trail_toggle_checkbox.checked; }
 
 function clear_grid_onclick() {
-    grid = [...Array(rowCount)].map(e => Array(columnCount).fill(0));
-    // setUpGrid(); 
+    // grid = [...Array(rowCount)].map(e => Array(columnCount).fill([0, 0]));
+    setUpGrid(); 
     priorityDraw();
 
     clear_grid_button.blur();
 }
 
 function reset_grid_onclick() {
-    grid = [...Array(rowCount)].map(e => Array(columnCount).fill(0));
+    // grid = [...Array(rowCount)].map(e => Array(columnCount).fill([0, 0]));
     setUpGrid(); 
     priorityDraw();
 
@@ -244,59 +303,39 @@ function reset_zoom_onclick() {
 //#endregion
 
 //#region ( Helper Functions )
-var colorPallete = [
-    '#A79277',
-    '#D1BB9E',
-    '#EAD8C0',
-    '#FFF2E1'
-];
-function getRandomColorFromList() {
-    return colorPallete[Math.floor(Math.random() * colorPallete.length)];
-}
 
-function getRandomColor() {
-    var letters = '0123456789ABCDEF';
-    var color = '#';
-    for (var i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
-  }
-  
-function getColor(x, y) {
-    return `rgb(${grid[y][x]}, 0, ${grid[y][x]})`
-}
-
-function birthCell(x, y) {
-    grid[y][x] = minColorValue;
-}
-
-function killCell(x, y) {
-
+let scannedCells = [];
+let nonZeroNeighbors = [];
+function birthCell(y, x) {
+    if(grid[y][x] == undefined)
+        grid[y][x] = [0, 0, 0];
+    
+    nonZeroNeighbors.push([y, x, minColorValue]);
+    grid[y][x][2] = minColorValue;
 }
 
 function setUpGrid() {    
-    // grid = [...Array(rowCount)].map(e => Array(columnCount).fill(0));
+    grid = [...Array(rowCount)].map(e => Array(columnCount));
+    scannedCells = [];
+    nonZeroNeighbors = [];
 
-    // Inital state
-    grid[5][6] = minColorValue;
-    grid[5][7] = minColorValue;
-    grid[5][8] = minColorValue;
+    birthCell(5, 6);
+    birthCell(5, 7);
+    birthCell(5, 8);
 
-    birthCell(0, 0);
-    birthCell(0, 1);
-    birthCell(1, 1);
+    birthCell(25, 24);
+    birthCell(25, 25);
+    birthCell(25, 26);
 
-    createGlider(14, 14);
-    createGlider(12, 10);
+    createGlider(50, 10, 1);
+    createGlider(12, 10, 4);    
+    createGlider(55, 5, 3);
+    createGlider(12, 25, 2);    
+    createGlider(65, 32, 4);
+    createGlider(12, 100, 4);
 
-    createGlider(20, 20, 1);
-    createGlider(10, 35, 2);
 
-    createGlider(20, 35, 3);
-    createGlider(10, 20, 4);
-
-    priorityDraw();
+    // priorityDraw();
 }
 //#endregion
 
@@ -304,47 +343,45 @@ function setUpGrid() {
 // Somehow do rotation
 function createGlider(x, y, rotation) {
     // Point of origin
-    grid[y][x] = minColorValue;
+    birthCell(y, x);
 
-    var yOffset = 1;
-    var xOffset = 1; 
+    let yOffset = 1;
+    let xOffset = 1; 
     if(rotation == 1) {
-        var yOffset = 1;
-        var xOffset = -1; 
+        yOffset = 1;
+        xOffset = -1; 
     } else if (rotation == 3) {
-        var yOffset = -1;
-        var xOffset = 1; 
+        yOffset = -1;
+        xOffset = 1; 
     } else if (rotation == 2) {
-        var yOffset = -1;
-        var xOffset = -1; 
+        yOffset = -1;
+        xOffset = -1; 
     }
 
-    grid[y + (1*yOffset)][x] = minColorValue;
-    grid[y + (2*yOffset)][x] = minColorValue;
 
-    grid[y + (2*yOffset)][x - (1*xOffset)] = minColorValue;    
-    grid[y + (1*yOffset)][x - (2*xOffset)] = minColorValue;
+    birthCell(y + (1*yOffset), x);
+    birthCell(y + (2*yOffset), x);
+
+    birthCell(y + (2*yOffset), x - (1*xOffset));
+    birthCell(y + (1*yOffset), x - (2*xOffset));
 }
 
 function displayGlider(x, y, rotation, offsetX, offsetY) {
-    var yOffset = 1;
-    var xOffset = 1; 
+    let yOffset = 1;
+    let xOffset = 1; 
     if(rotation == 1) {
-        var yOffset = 1;
-        var xOffset = -1; 
+        yOffset = 1;
+        xOffset = -1; 
     } else if (rotation == 3) {
-        var yOffset = -1;
-        var xOffset = 1; 
+        yOffset = -1;
+        xOffset = 1; 
     } else if (rotation == 2) {
-        var yOffset = -1;
-        var xOffset = -1; 
+        yOffset = -1;
+        xOffset = -1; 
     }
 
     ctx.fillStyle = highlightColor;
-    
-    // grid[y][x]
     // [y + (1*yOffset)][x]
-    // console.log(((offsetY + 1*yOffset) * rectHeight));
     ctx.fillRect(offsetX * rectWidth, ((offsetY + 1*yOffset) * rectHeight), rectWidth, rectHeight); 
 
     // [y + (1*yOffset)][x - (2*xOffset)]
@@ -359,30 +396,28 @@ function displayGlider(x, y, rotation, offsetX, offsetY) {
 //#endregion
 
 //#region ( Loop logic )
-function getNeighbors(x, y) {     
-    var neighbors = 0;
-    // console.log('Within get neighbors call', x, y);
+function getNeighbors(x, y) {
+    if(x < 0 || x > columnCount || y < 0 || y > rowCount - 1)
+        return;
+
+    let neighbors = 0;
     
     // If these indecies are within the grid
     // Check cells at same rank in rows above and below.
     if(y - 1 >= 0) {
         if(grid[y - 1][x] >= minColorValue)
             neighbors++;
-        
         if(x - 1 >= 0 && grid[y - 1][x - 1] >= minColorValue)
             neighbors++;
-
         if(x + 1 < columnCount && grid[y - 1][x + 1] >= minColorValue)
             neighbors++;
     }
 
-    if(y + 1 < rowCount) {
+    if(y + 1 < rowCount - 1) {
         if(grid[y + 1][x] >= minColorValue) 
             neighbors++;
-        
         if(x - 1 >= 0 && grid[y + 1][x - 1] >= minColorValue) 
-            neighbors++;
-            
+            neighbors++;   
         if(x + 1 < columnCount && grid[y + 1][x + 1] >= minColorValue) 
             neighbors++;    
     }
@@ -390,151 +425,372 @@ function getNeighbors(x, y) {
     // Check cells at rank plus/minus in same row.
     if(x - 1 >= 0 && grid[y][x - 1] >= minColorValue)
         neighbors++;
-
     if(x + 1 < columnCount && grid[y][x + 1] >= minColorValue) 
         neighbors++;    
-
-// Left here for future debugging
-// console.log(`Live cell to the left of ${x}, ${y}, ${grid[y][x - 1]}`)
-    
     return neighbors;
 } 
 
-function updateCells() { 
+function getColor(hex) {
+    return `rgb(${hex}, 0, ${hex})`
+}
+
+function validCoordinates(y, x) {
+    return !(y < 0 || y >= rowCount || x < 0 || x >= columnCount);
+} 
+
+function updateScannedCell(y, x) {
+    if(grid[y][x] == undefined)
+        grid[y][x] = [0, 0, 0];
+
+    // Incrementing Neighbors
+    grid[y][x][0] += 1;
+
+    if(grid[y][x][1] == 0) {
+        // Setting scanned to one
+        grid[y][x][1] = 1;
+        scannedCells.push([y, x]);
+    }            
+}  
+
+function updateNeighbors(cell) {
+        let y = cell[0];
+        let x = cell[1];
+    
+        // Left side
+        y += 1;
+        x -= 1;
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+
+        y -= 1;
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+
+        y -= 1;
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+        
+        x += 1;
+        // Top
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+
+        x += 1;
+        // Right side
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+
+        y += 1;
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+
+        y += 1;
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+
+        x -= 1;
+        // Bottom
+        if(validCoordinates(y, x)) 
+            updateScannedCell(y, x);
+}
+
+function newUpdateCells() {
     rectWidth = canvas.width/displayColumnCount;
     rectHeight = canvas.height/displayRowCount;
     
-    var updatedGrid = [];
-    var offsetX;
-    var offsetY;
-    for(var y = 0; y < rowCount; y++) { 
-        for(var x = 0; x < columnCount; x++) { 
-            offsetX = x - originX;
-            offsetY = y - originY;
+    // Draw all non cells with more than 0 neighbors
+    let offsetX;
+    let offsetY;
 
-            if(mouseX >= (offsetX * rectWidth) && mouseX < (offsetX * rectWidth) + rectWidth &&
-            mouseY >= (offsetY * rectHeight) && mouseY < (offsetY * rectHeight) + rectHeight) {
-                ctx.fillStyle = highlightColor;
-                ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-                highlightedCell = [x, y];
-                displayGlider(x, y, rotation, offsetX, offsetY);
-            }
+    nonZeroNeighbors = structuredClone(nonZeroNeighbors);
+    for(let i = nonZeroNeighbors.length - 1; i >= 0; i--) {
+        cell = nonZeroNeighbors[i]
+        if(cell[2] <= 0)
+            continue;
+        
+        let y = cell[0];
+        let x = cell[1];
+        cell[2] = grid[y][x][2];
 
-            if(grid[y][x] > 0 && grid[y][x] < minColorValue) {
-                // ctx.globalAlpha = 0.8;
-                grid[y][x] -= decayRate;
-                // ctx.globalAlpha = 1;
-                
-                if(x >= originX && x <= originX + displayColumnCount &&
-                    y >= originY && y <= originY + displayRowCount) {
-                        ctx.fillStyle = getColor(x, y);
-                        ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-                }
-            }
+        offsetX = x - originX;
+        offsetY = y - originY;  
 
-            var n = getNeighbors(x, y);
-            updatedGrid.push([x, y, grid[y][x]]);
-            // offsetX = x - originX;
-            // offsetY = y - originY;
-
-            if(x == 0 && y == 0) {
-                ctx.strokeStyle = "#DCE0D9";
-                ctx.strokeRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
-            }
-
-            if(grid[y][x] < minColorValue) {
-                if(n == 3)
-                    updatedGrid[updatedGrid.length - 1][2] = minColorValue;
-                continue;
-            }
-
-            if(x >= originX && x <= originX + displayColumnCount &&
-               y >= originY && y <= originY + displayRowCount) {
-                ctx.fillStyle = getColor(x, y);
-                ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-            }
-            
-            if(outlineCells) {
-                ctx.strokeStyle = strokeColor;
-                ctx.strokeRect(x * rectWidth, y * rectHeight, rectWidth, rectHeight); 
-            }
-            
-            if(debugOptions) {
-                ctx.strokeText(`[${x}, ${y}]`, x * rectWidth + 5, y * rectHeight + 10, rectWidth);
-                ctx.strokeText(`[Neighbors = ${n}]`, x * rectWidth + 5, y * rectHeight + (rectHeight/2), rectWidth);
-            }
-            
-            if(grid[y][x] != 0 && grid[y][x] < 255)
-                updatedGrid[updatedGrid.length - 1][2] += colorIncrement;    
-
-            if(n < 2){
-                if(decayToggle)
-                    updatedGrid[updatedGrid.length - 1][2] = minColorValue - decayRate;
-                else 
-                    updatedGrid[updatedGrid.length - 1][2] = 0;
-            }
-            else if (n > 3) {
-            
-                if(decayToggle)            
-                    updatedGrid[updatedGrid.length - 1][2] = minColorValue - decayRate;
-                else
-                    updatedGrid[updatedGrid.length - 1][2] = 0;
-            }
+        // Drawing based on viewport origin x and y 
+        if(x >= originX && x <= originX + displayColumnCount &&
+            y >= originY && y <= originY + displayRowCount && cell[2] > 0) {
+            ctx.fillStyle = getColor(cell[2]);
+            ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
         }
-    } 
-    // TODO Find a better way to copy an array by reference and do this all with only one loop if performance becomes an issue
-    for(var i = 0; i < updatedGrid.length; i++) {
-        grid[updatedGrid[i][1]][updatedGrid[i][0]] = updatedGrid[i][2];
+
+        // If cell is live, update n count for all neighboring cells
+        if(cell[2] >= minColorValue)
+            updateNeighbors(cell);
+
+        if(cell[2] > 0 && cell[2] < minColorValue) 
+            cell[2] -= decayRate;
+            // return;
+        
+        if(cell[2] > 0 && cell[2] < 255) {
+            cell[2] += colorIncrement;    
+        }
+    };
+
+    for(let i = nonZeroNeighbors.length - 1; i >= 0; i--) {
+        cell = nonZeroNeighbors[i];
+
+        if(cell[2] < minColorValue)
+            continue;
+
+        let y = cell[0];
+        let x = cell[1];
+        let n = grid[y][x][0];
+
+        // Death conditions       
+        if(n < 2 || n > 3) {
+            if(decayToggle)
+                cell[2] = minColorValue - decayRate;    
+            else 
+                cell[2] = 0; 
+            if(cell[2] == 0)
+                nonZeroNeighbors.splice(i, 1);
+
+        }
+
+        // Updating value
+        grid[y][x][2] = cell[2];
+        
+        // Resetting neighbor count to be recalculated next tick
+        grid[y][x][0] = 0;
     }
-} 
+
+    // Resetting scan toggle
+    for(let i = scannedCells.length - 1; i >= 0; i-- ) {
+        cell = scannedCells[i]
+        let y = cell[0];
+        let x = cell[1];
+
+        grid[y][x][1] = 0;
+        
+        if(grid[y][x][2] < minColorValue && grid[cell[0]][cell[1]][0] == 3) {
+            birthCell(y, x);
+        }
+        
+        grid[y][x][0] = 0;
+        scannedCells.splice(i, 1);
+    };
+}
+
+// function newUpdateCells() {
+//     updatedGrid = [];
+
+//     rectWidth = canvas.width/displayColumnCount;
+//     rectHeight = canvas.height/displayRowCount;
+    
+//     let offsetX;
+//     let offsetY;
+
+//     for(let i = 0; i < nonZeroCells.length; i++) {
+//         //////////console.log(nonZeroCells.length, i);
+//         grid[nonZeroCells[i][0]][nonZeroCells[i][1]] = nonZeroCells[i][2];
+//     }
+
+//     nonZeroCells.forEach((cell) => {
+//         let y = cell[0];
+//         let x = cell[1];
+
+//         offsetX = x - originX;
+//         offsetY = y - originY;
+
+//         if(grid[y][x] == 0) {
+//             nonZeroCells.splice(nonZeroCells.indexOf(cell), 1);
+//             return;
+//         }
+
+//         if(cell[2] < minColorValue)
+//             cell[2] -= decayRate;
+//         if(cell[2] < 255)
+//             cell[2] += colorIncrement;   
+
+//         if(x >= originX && x <= originX + displayColumnCount &&
+//             y >= originY && y <= originY + displayRowCount) {
+//              ctx.fillStyle = getColor(x, y);
+//              ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+//          }
+
+//         if(cell[2] < minColorValue)
+//             updatedGrid.push([y, x, cell[2]]);
+
+//         // Itself
+//         // //////////console.log(`Rules applying to cell y: ${y}, x: ${x}, m: ${grid[y][x]}`);
+//         updatedGrid.push([y, x, applyLiveCellRules(y, x, cell[2])]);
+
+//         // Left side
+//         applyDeadCellRules(y + 1, x - 1, cell);
+//         applyDeadCellRules(y, x - 1, cell);
+//         applyDeadCellRules(y - 1, x - 1, cell);
+        
+//         // Top
+//         applyDeadCellRules(y - 1, x, cell);
+
+//         // Right side
+//         applyDeadCellRules(y - 1, x + 1, cell);
+//         applyDeadCellRules(y, x + 1, cell);
+//         applyDeadCellRules(y + 1, x + 1, cell);
+
+//         // Bottom
+//         applyDeadCellRules(y + 1, x, cell);
+//     });
+
+//     // debugger;
+//     // //////////console.log(nonZeroCells);
+//     // nonZeroCells.push([y, x, grid[y][x]]);
+
+//     updatedGrid.forEach((cell) => {
+//         // //////////console.log(`Cell ${cell[0]}, ${cell[1]}, being updated with value ${cell[2]}`);
+//         // if(!nonZeroCells.includes([cell[0], cell[1], cell[2]]))
+        
+//         if(!arrayIncludes(nonZeroCells, cell))
+//             nonZeroCells.push([cell[0], cell[1], cell[2]]);
+
+//         grid[cell[0]][cell[1]] = cell[2];
+//     });
+// }
+
+// function updateCells() { 
+//     updatedGrid = [];
+
+//     rectWidth = canvas.width/displayColumnCount;
+//     rectHeight = canvas.height/displayRowCount;
+    
+//     let offsetX;
+//     let offsetY;
+
+//     for(let y = 0; y < rowCount; y++) { 
+//         for(let x = 0; x < columnCount; x++) { 
+//             offsetX = x - originX;
+//             offsetY = y - originY;
+
+//             if(mouseX >= (offsetX * rectWidth) && mouseX < (offsetX * rectWidth) + rectWidth &&
+//             mouseY >= (offsetY * rectHeight) && mouseY < (offsetY * rectHeight) + rectHeight) {
+//                 ctx.fillStyle = highlightColor;
+//                 ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+//                 highlightedCell = [x, y];
+//                 displayGlider(x, y, rotation, offsetX, offsetY);
+//             }
+
+//             if(grid[y][x] > 0 && grid[y][x] < minColorValue) {
+//                 grid[y][x] -= decayRate;
+                
+//                 if(x >= originX && x <= originX + displayColumnCount &&
+//                     y >= originY && y <= originY + displayRowCount) {
+//                         ctx.fillStyle = getColor(x, y);
+//                         ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+//                 }
+//             }
+
+//             let n = getNeighbors(x, y);
+//             updatedGrid.push([x, y, grid[y][x]]);
+
+//             // if(x == 0 && y == 0) {
+//             //     ctx.strokeStyle = "#DCE0D9";
+//             //     ctx.strokeRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
+//             // }
+
+//             if(grid[y][x] < minColorValue) {
+//                 if(n == 3)
+//                     updatedGrid[updatedGrid.length - 1][2] = minColorValue;
+//                 continue;
+//             }
+
+//             if(x >= originX && x <= originX + displayColumnCount &&
+//                y >= originY && y <= originY + displayRowCount) {
+//                 ctx.fillStyle = getColor(x, y);
+//                 ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+//             }
+            
+//             if(outlineCells) {
+//                 ctx.strokeStyle = strokeColor;
+//                 ctx.strokeRect(x * rectWidth, y * rectHeight, rectWidth, rectHeight); 
+//             }
+            
+//             if(debugOptions) {
+//                 ctx.strokeText(`[${x}, ${y}]`, x * rectWidth + 5, y * rectHeight + 10, rectWidth);
+//                 ctx.strokeText(`[Neighbors = ${n}]`, x * rectWidth + 5, y * rectHeight + (rectHeight/2), rectWidth);
+//             }
+            
+//             if(grid[y][x] != 0 && grid[y][x] < 255)
+//                 updatedGrid[updatedGrid.length - 1][2] += colorIncrement;    
+
+//             if(n < 2){
+//                 if(decayToggle)
+//                     updatedGrid[updatedGrid.length - 1][2] = minColorValue - decayRate;
+//                 else 
+//                     updatedGrid[updatedGrid.length - 1][2] = 0;
+//             }
+//             else if (n > 3) {
+            
+//                 if(decayToggle)            
+//                     updatedGrid[updatedGrid.length - 1][2] = minColorValue - decayRate;
+//                 else
+//                     updatedGrid[updatedGrid.length - 1][2] = 0;
+//             }
+//         }
+//     } 
+//     // TODO Find a better way to copy an array by reference and do this all with only one loop if performance becomes an issue
+//     for(let i = 0; i < updatedGrid.length; i++) {
+//         grid[updatedGrid[i][1]][updatedGrid[i][0]] = updatedGrid[i][2];
+//     }
+// } 
  
+function drawBoundary() {
+    ctx.strokeStyle = "white";
+    ctx.strokeRect(-originX * rectWidth, -originY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
+}
+
 setUpGrid();
 function updateAndDraw() {
     if(!paused) {
         ctx.clearRect(0, 0, canvas.width, canvas.height); 
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        updateCells(); 
 
+        drawBoundary();
+        newUpdateCells();
     }
-    setTimeout(updateAndDraw, gameSpeed);
+    setTimeout(updateAndDraw, tickDelay);
 }
 updateAndDraw();
-//#endregion
 
+
+//#endregion
 function priorityDraw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); 
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log(nonZeroNeighbors.length);
 
     rectWidth = canvas.width/displayColumnCount;
     rectHeight = canvas.height/displayRowCount;
 
-    for(var y = 0; y < rowCount; y++) { 
-        for(var x = 0; x < columnCount; x++) { 
-            offsetX = x - originX;
-            offsetY = y - originY;
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw all non cells with more than 0 neighbors
+    let offsetX;
+    let offsetY;
+    for(let i = nonZeroNeighbors.length - 1; i >= 0; i--) {
+        cell = nonZeroNeighbors[i];
+        let y = cell[0];
+        let x = cell[1];
 
-            // Highlight cell
-            if(mouseX >= (offsetX * rectWidth) && mouseX < (offsetX * rectWidth) + rectWidth &&
-            mouseY >= (offsetY * rectHeight) && mouseY < (offsetY * rectHeight) + rectHeight) {
-                ctx.fillStyle = highlightColor;
-                ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-                highlightedCell = [x, y];
-                displayGlider(x, y, rotation, offsetX, offsetY);
-            }
-            
-            if(x == 0 && y == 0) {
-                ctx.strokeStyle = "#DCE0D9";
-                ctx.strokeRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
-            }
+        offsetX = x - originX;
+        offsetY = y - originY;  
 
-            if(grid[y][x] > 0 && 
-                x >= originX && x <= originX + displayColumnCount &&
-                y >= originY && y <= originY + displayRowCount) {   
-                    ctx.fillStyle = getColor(x, y);
-                    ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-             }
+        // Drawing based on viewport origin x and y 
+        if(x >= originX && x <= originX + displayColumnCount &&
+            y >= originY && y <= originY + displayRowCount && cell[2] > 0) {
+            ctx.fillStyle = getColor(cell[2]);
+            ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
         }
-    }
+    };
+    
+    drawBoundary();
 }
