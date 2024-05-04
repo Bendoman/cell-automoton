@@ -71,8 +71,8 @@ let debugOptions = false;
 let outlineCells = false;
 
 // Grid variables
-let rowCount = 500;
-let columnCount = 500;
+let rowCount = 1000;
+let columnCount = 1000;
 
 let displayRowCount = 9*10;
 let displayColumnCount = 16*10;
@@ -90,6 +90,7 @@ let decayToggle = false;
 let backgroundColor = '#343d46';
 let strokeColor = '#FFF';
 let highlightColor = "rgb(255, 100, 0)"
+let highlightedCell = [];
 
 let rotation = 1;
 
@@ -138,12 +139,17 @@ let rectHeight;
 window.addEventListener("resize", (e) => { priorityDraw(); });
 
 //#region ( Failed Drag to Move )
-// let dragActive = false; 
+let dragActive = false; 
 canvas.addEventListener("pointerdown", (e) => {
     if(highlightedCell != null) {
-        createGlider(highlightedCell[0], highlightedCell[1], rotation);
+        // createGlider(highlightedCell[1], highlightedCell[0], rotation);
+        birthCell(highlightedCell[0], highlightedCell[1]);
     }
+    dragActive = true; 
+    // displayHighlightedCell = null;
 });
+
+canvas.addEventListener("pointerup", (e) => { dragActive = false; })
 
 // window.addEventListener("pointerup", (e) => { dragActive = false; });
 
@@ -154,7 +160,12 @@ canvas.addEventListener("pointermove", (e) => {
     mouseX = mousePos.x;
     mouseY = mousePos.y;
 
-    // priorityDraw()
+    if(dragActive)
+        birthCell(highlightedCell[0], highlightedCell[1]);
+
+    priorityDraw()
+    // findCursor();
+    
 });
 //#endregion
 
@@ -282,10 +293,11 @@ function clear_grid_onclick() {
 }
 
 function reset_grid_onclick() {
-    // grid = [...Array(rowCount)].map(e => Array(columnCount).fill([0, 0]));
-    setUpGrid(); 
-    priorityDraw();
+    grid = [...Array(rowCount)].map(e => Array(columnCount));
+    scannedCells = [];
+    nonZeroNeighbors = [];
 
+    priorityDraw();
     clear_grid_button.blur();
 }
 
@@ -561,6 +573,7 @@ function newUpdateCells() {
         
         // Resetting neighbor count to be recalculated next tick
         grid[y][x][0] = 0;
+        
     }
 
     // Resetting scan toggle
@@ -756,16 +769,15 @@ function updateAndDraw() {
 
         drawBoundary();
         newUpdateCells();
+    findCursor();
+
     }
+    console.log(`nonzeroArray length: ${structuredClone(nonZeroNeighbors).length}\nscannedCells length: ${structuredClone(scannedCells).length}`);
     setTimeout(updateAndDraw, tickDelay);
 }
 updateAndDraw();
 
-
-//#endregion
 function priorityDraw() {
-    console.log(nonZeroNeighbors.length);
-
     rectWidth = canvas.width/displayColumnCount;
     rectHeight = canvas.height/displayRowCount;
 
@@ -789,8 +801,31 @@ function priorityDraw() {
             y >= originY && y <= originY + displayRowCount && cell[2] > 0) {
             ctx.fillStyle = getColor(cell[2]);
             ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-        }
+        }   
     };
     
     drawBoundary();
+    findCursor();
 }
+
+
+function drawMouseCircle(y, x) {
+
+}
+
+function findCursor() {
+    rectWidth = canvas.width/displayColumnCount;
+    rectHeight = canvas.height/displayRowCount;
+
+    for(let y = 0; y < displayRowCount; y++) {
+        for(let x = 0; x < displayColumnCount; x++) {
+            if(mouseX >= (x * rectWidth) && mouseX < (x * rectWidth) + rectWidth &&
+            mouseY >= (y * rectHeight) && mouseY < (y * rectHeight) + rectHeight) {
+                highlightedCell = [y + originY, x + originX];
+            }
+        }
+    }
+}
+//#endregion
+
+
