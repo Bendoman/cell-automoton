@@ -289,18 +289,18 @@ function rewind_onclick() {
 function trail_toggle_onclick() { decayToggle = trail_toggle_checkbox.checked; }
 
 function clear_grid_onclick() {
-    // grid = [...Array(rowCount)].map(e => Array(columnCount).fill([0, 0]));
-    setUpGrid(); 
-    priorityDraw();
+    values_grid = [...Array(rowCount)].map(e => Array(columnCount));
+    neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
+    non_zero_cells = [];
 
+
+    priorityDraw();
     clear_grid_button.blur();
 }
 
 function reset_grid_onclick() {
-    grid = [...Array(rowCount)].map(e => Array(columnCount));
+    values_grid = [...Array(rowCount)].map(e => Array(columnCount));
     neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
-
-    scannedCells = [];
     non_zero_cells = [];
 
     priorityDraw();
@@ -340,9 +340,11 @@ function setUpGrid() {
     neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
     non_zero_cells = [];
 
-    birthCell(5, 6);
-    birthCell(5, 7);
-    birthCell(5, 8);
+    // birthCell(5, 6);
+    // birthCell(5, 7);
+    // birthCell(5, 8);
+
+    createGlider(10, 10, 4);
 }
 //#endregion
 
@@ -460,7 +462,6 @@ function updateNeighbors(cell) {
     x--; updateNeighbor(cellY, cellX, y, x); 
 
     let neighbors = neighbors_grid[cellY][cellX];
-    // console.log(`Cell ${cell} has ${neighbors} neighbors`);
     if(neighbors < 2 || neighbors > 3)
         changed_cells.push(cell);
 }
@@ -470,10 +471,8 @@ function updateGrid()
     rectWidth = width/displayColumnCount;
     rectHeight = height/displayRowCount;
 
-    ctx.strokeStyle = "white";
-    ctx.strokeText(`Drawn cell count: ${non_zero_cells.length}`, 250, 10);
-    changed_cells = [];
 
+    changed_cells = [];
 
     for(let i = non_zero_cells.length - 1; i >= 0; i--)
     {
@@ -481,7 +480,7 @@ function updateGrid()
         let y = cell[0];
         let x = cell[1];
 
-        if(values_grid[y][x] <= 0) {
+        if(values_grid[y][x] == 0) {
             non_zero_cells.splice(i, 1);
             continue;
         }
@@ -519,8 +518,10 @@ function updateGrid()
         }
 
         // console.log(`Cell ${cell} marked for BIRTH`);
-        values_grid[y][x] = minColorValue;
-        non_zero_cells.push([y, x]);
+        if(neighbors_grid[y][x] == 3) {
+            values_grid[y][x] = minColorValue;
+            non_zero_cells.push([y, x]);
+        }
     }
 }
 
@@ -532,17 +533,29 @@ var frameTime = 0, lastLoop = new Date, thisLoop;
 let width = canvas.width;
 let height = canvas.height;
 
+base_grid = [...Array(rowCount)].map(e => Array(columnCount));
 function updateAndDraw() {
+
+    var thisFrameTime = (thisLoop=new Date) - lastLoop;
+    frameTime+= (thisFrameTime - frameTime) / filterStrength;
+    lastLoop = thisLoop;
+
+
+    // neighbors_grid = [[]];
+    neighbors_grid = structuredClone(base_grid);
+    // neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
     if(!paused) {
         // Reset neighbors
-        neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
         ctx.clearRect(0, 0, canvas.width, canvas.height); 
-
         updateGrid();
-
         drawBoundary();
     }
-    setTimeout(updateAndDraw, 1);
+    ctx.strokeStyle = "white";
+    ctx.strokeText(`Drawn cell count: ${non_zero_cells.length}`, 250, 10);
+    ctx.strokeText(`FPS: ${(1000/frameTime).toFixed(1)}`, 10, 10);
+    // setTimeout(updateAndDraw, tickDelay);
+    // debugger;
+    window.requestAnimationFrame(updateAndDraw);
 }
 updateAndDraw();
 
