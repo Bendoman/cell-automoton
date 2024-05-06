@@ -53,19 +53,17 @@ function getCursorPosition(canvas, event) {
 let cellSize = 35;
 let boardOriginX = 0;
 let boardOriginY = 0; 
-let cellFillOpacity = 0.75;
 
 let imageScaling = 1;
 let scrollSpeed = 2;
 // let zoomspeed = 5;
+
 let baseTickDelay = 100;
 let tickDelay = baseTickDelay;
+
 let counterValue = 7;
-
 let delayIncrement = 25;
-
 let paused = false;
-
 
 let debugOptions = false;
 let outlineCells = false;
@@ -82,9 +80,9 @@ let originY = -2;
 
 // Color code values
 // TODO Color fadeout, very easy.
-let minColorValue = 25;
+let minColorValue = 255;
 let colorIncrement = 15;
-let decayRate = 2.5;
+let decayRate = 15;
 let decayToggle = false;
 
 let backgroundColor = '#343d46';
@@ -105,6 +103,8 @@ let rotation = 1;
 // TODO Remove width definition from elements so that it is responsive
 // TODO Birth on phone pointerup at x and y
 // TODO Pinch zoom for phone
+
+// TODO FPS and cell counters
 
 // TODO Fix sidebar content scrolling
 
@@ -141,31 +141,35 @@ window.addEventListener("resize", (e) => { priorityDraw(); });
 //#region ( Failed Drag to Move )
 let dragActive = false; 
 canvas.addEventListener("pointerdown", (e) => {
+    findCursor();
     if(highlightedCell != null) {
-        // createGlider(highlightedCell[1], highlightedCell[0], rotation);
-        birthCell(highlightedCell[0], highlightedCell[1]);
+
+        for(let i = 0; i < columnCount/2; i++) {
+            birthCell(highlightedCell[0], highlightedCell[1] + i);
+        }
+        priorityDraw(); 
     }
     dragActive = true; 
-    // displayHighlightedCell = null;
 });
 
 canvas.addEventListener("pointerup", (e) => { dragActive = false; })
 
-// window.addEventListener("pointerup", (e) => { dragActive = false; });
-
 let mouseX;
 let mouseY;
+let previousHighlightedCell = [];
 canvas.addEventListener("pointermove", (e) => {
     let mousePos = getCursorPosition(canvas, e);
     mouseX = mousePos.x;
     mouseY = mousePos.y;
-
-    if(dragActive)
-        birthCell(highlightedCell[0], highlightedCell[1]);
-
-    priorityDraw()
+ 
     // findCursor();
     
+    // if(!dragActive || (highlightedCell[0] == previousHighlightedCell[0] && highlightedCell[1] == previousHighlightedCell[1]))
+    //     return
+    // birthCell(highlightedCell[0], highlightedCell[1]);
+
+
+    // priorityDraw()      
 });
 //#endregion
 
@@ -294,8 +298,10 @@ function clear_grid_onclick() {
 
 function reset_grid_onclick() {
     grid = [...Array(rowCount)].map(e => Array(columnCount));
+    neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
+
     scannedCells = [];
-    nonZeroNeighbors = [];
+    non_zero_cells = [];
 
     priorityDraw();
     clear_grid_button.blur();
@@ -314,40 +320,29 @@ function reset_zoom_onclick() {
 }
 //#endregion
 
-//#region ( Helper Functions )
 
-let scannedCells = [];
-let nonZeroNeighbors = [];
+
+let values_grid = [];
+let neighbors_grid = [];
+
+let changed_cells = [];
+let non_zero_cells = [];
 function birthCell(y, x) {
-    if(grid[y][x] == undefined)
-        grid[y][x] = [0, 0, 0];
-    
-    nonZeroNeighbors.push([y, x, minColorValue]);
-    grid[y][x][2] = minColorValue;
+    if(!validCoordinates(y, x))  
+        return; 
+
+    non_zero_cells.push([y, x]);
+    values_grid[y][x] = minColorValue;
 }
 
 function setUpGrid() {    
-    grid = [...Array(rowCount)].map(e => Array(columnCount));
-    scannedCells = [];
-    nonZeroNeighbors = [];
+    values_grid = [...Array(rowCount)].map(e => Array(columnCount));
+    neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
+    non_zero_cells = [];
 
     birthCell(5, 6);
     birthCell(5, 7);
     birthCell(5, 8);
-
-    birthCell(25, 24);
-    birthCell(25, 25);
-    birthCell(25, 26);
-
-    createGlider(50, 10, 1);
-    createGlider(12, 10, 4);    
-    createGlider(55, 5, 3);
-    createGlider(12, 25, 2);    
-    createGlider(65, 32, 4);
-    createGlider(12, 100, 4);
-
-
-    // priorityDraw();
 }
 //#endregion
 
@@ -408,40 +403,6 @@ function displayGlider(x, y, rotation, offsetX, offsetY) {
 //#endregion
 
 //#region ( Loop logic )
-function getNeighbors(x, y) {
-    if(x < 0 || x > columnCount || y < 0 || y > rowCount - 1)
-        return;
-
-    let neighbors = 0;
-    
-    // If these indecies are within the grid
-    // Check cells at same rank in rows above and below.
-    if(y - 1 >= 0) {
-        if(grid[y - 1][x] >= minColorValue)
-            neighbors++;
-        if(x - 1 >= 0 && grid[y - 1][x - 1] >= minColorValue)
-            neighbors++;
-        if(x + 1 < columnCount && grid[y - 1][x + 1] >= minColorValue)
-            neighbors++;
-    }
-
-    if(y + 1 < rowCount - 1) {
-        if(grid[y + 1][x] >= minColorValue) 
-            neighbors++;
-        if(x - 1 >= 0 && grid[y + 1][x - 1] >= minColorValue) 
-            neighbors++;   
-        if(x + 1 < columnCount && grid[y + 1][x + 1] >= minColorValue) 
-            neighbors++;    
-    }
-
-    // Check cells at rank plus/minus in same row.
-    if(x - 1 >= 0 && grid[y][x - 1] >= minColorValue)
-        neighbors++;
-    if(x + 1 < columnCount && grid[y][x + 1] >= minColorValue) 
-        neighbors++;    
-    return neighbors;
-} 
-
 function getColor(hex) {
     return `rgb(${hex}, 0, ${hex})`
 }
@@ -450,346 +411,153 @@ function validCoordinates(y, x) {
     return !(y < 0 || y >= rowCount || x < 0 || x >= columnCount);
 } 
 
-function updateScannedCell(y, x) {
-    if(grid[y][x] == undefined)
-        grid[y][x] = [0, 0, 0];
-
-    // Incrementing Neighbors
-    grid[y][x][0] += 1;
-
-    if(grid[y][x][1] == 0) {
-        // Setting scanned to one
-        grid[y][x][1] = 1;
-        scannedCells.push([y, x]);
-    }            
-}  
-
-function updateNeighbors(cell) {
-        let y = cell[0];
-        let x = cell[1];
-    
-        // Left side
-        y += 1;
-        x -= 1;
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-
-        y -= 1;
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-
-        y -= 1;
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-        
-        x += 1;
-        // Top
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-
-        x += 1;
-        // Right side
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-
-        y += 1;
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-
-        y += 1;
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-
-        x -= 1;
-        // Bottom
-        if(validCoordinates(y, x)) 
-            updateScannedCell(y, x);
-}
-
-function newUpdateCells() {
-    rectWidth = canvas.width/displayColumnCount;
-    rectHeight = canvas.height/displayRowCount;
-    
-    // Draw all non cells with more than 0 neighbors
-    let offsetX;
-    let offsetY;
-
-    nonZeroNeighbors = structuredClone(nonZeroNeighbors);
-    for(let i = nonZeroNeighbors.length - 1; i >= 0; i--) {
-        cell = nonZeroNeighbors[i]
-        if(cell[2] <= 0)
-            continue;
-        
-        let y = cell[0];
-        let x = cell[1];
-        cell[2] = grid[y][x][2];
-
-        offsetX = x - originX;
-        offsetY = y - originY;  
-
-        // Drawing based on viewport origin x and y 
-        if(x >= originX && x <= originX + displayColumnCount &&
-            y >= originY && y <= originY + displayRowCount && cell[2] > 0) {
-            ctx.fillStyle = getColor(cell[2]);
-            ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-        }
-
-        // If cell is live, update n count for all neighboring cells
-        if(cell[2] >= minColorValue)
-            updateNeighbors(cell);
-
-        if(cell[2] > 0 && cell[2] < minColorValue) 
-            cell[2] -= decayRate;
-            // return;
-        
-        if(cell[2] > 0 && cell[2] < 255) {
-            cell[2] += colorIncrement;    
-        }
-    };
-
-    for(let i = nonZeroNeighbors.length - 1; i >= 0; i--) {
-        cell = nonZeroNeighbors[i];
-
-        if(cell[2] < minColorValue)
-            continue;
-
-        let y = cell[0];
-        let x = cell[1];
-        let n = grid[y][x][0];
-
-        // Death conditions       
-        if(n < 2 || n > 3) {
-            if(decayToggle)
-                cell[2] = minColorValue - decayRate;    
-            else 
-                cell[2] = 0; 
-            if(cell[2] == 0)
-                nonZeroNeighbors.splice(i, 1);
-
-        }
-
-        // Updating value
-        grid[y][x][2] = cell[2];
-        
-        // Resetting neighbor count to be recalculated next tick
-        grid[y][x][0] = 0;
-        
-    }
-
-    // Resetting scan toggle
-    for(let i = scannedCells.length - 1; i >= 0; i-- ) {
-        cell = scannedCells[i]
-        let y = cell[0];
-        let x = cell[1];
-
-        grid[y][x][1] = 0;
-        
-        if(grid[y][x][2] < minColorValue && grid[cell[0]][cell[1]][0] == 3) {
-            birthCell(y, x);
-        }
-        
-        grid[y][x][0] = 0;
-        scannedCells.splice(i, 1);
-    };
-}
-
-// function newUpdateCells() {
-//     updatedGrid = [];
-
-//     rectWidth = canvas.width/displayColumnCount;
-//     rectHeight = canvas.height/displayRowCount;
-    
-//     let offsetX;
-//     let offsetY;
-
-//     for(let i = 0; i < nonZeroCells.length; i++) {
-//         //////////console.log(nonZeroCells.length, i);
-//         grid[nonZeroCells[i][0]][nonZeroCells[i][1]] = nonZeroCells[i][2];
-//     }
-
-//     nonZeroCells.forEach((cell) => {
-//         let y = cell[0];
-//         let x = cell[1];
-
-//         offsetX = x - originX;
-//         offsetY = y - originY;
-
-//         if(grid[y][x] == 0) {
-//             nonZeroCells.splice(nonZeroCells.indexOf(cell), 1);
-//             return;
-//         }
-
-//         if(cell[2] < minColorValue)
-//             cell[2] -= decayRate;
-//         if(cell[2] < 255)
-//             cell[2] += colorIncrement;   
-
-//         if(x >= originX && x <= originX + displayColumnCount &&
-//             y >= originY && y <= originY + displayRowCount) {
-//              ctx.fillStyle = getColor(x, y);
-//              ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-//          }
-
-//         if(cell[2] < minColorValue)
-//             updatedGrid.push([y, x, cell[2]]);
-
-//         // Itself
-//         // //////////console.log(`Rules applying to cell y: ${y}, x: ${x}, m: ${grid[y][x]}`);
-//         updatedGrid.push([y, x, applyLiveCellRules(y, x, cell[2])]);
-
-//         // Left side
-//         applyDeadCellRules(y + 1, x - 1, cell);
-//         applyDeadCellRules(y, x - 1, cell);
-//         applyDeadCellRules(y - 1, x - 1, cell);
-        
-//         // Top
-//         applyDeadCellRules(y - 1, x, cell);
-
-//         // Right side
-//         applyDeadCellRules(y - 1, x + 1, cell);
-//         applyDeadCellRules(y, x + 1, cell);
-//         applyDeadCellRules(y + 1, x + 1, cell);
-
-//         // Bottom
-//         applyDeadCellRules(y + 1, x, cell);
-//     });
-
-//     // debugger;
-//     // //////////console.log(nonZeroCells);
-//     // nonZeroCells.push([y, x, grid[y][x]]);
-
-//     updatedGrid.forEach((cell) => {
-//         // //////////console.log(`Cell ${cell[0]}, ${cell[1]}, being updated with value ${cell[2]}`);
-//         // if(!nonZeroCells.includes([cell[0], cell[1], cell[2]]))
-        
-//         if(!arrayIncludes(nonZeroCells, cell))
-//             nonZeroCells.push([cell[0], cell[1], cell[2]]);
-
-//         grid[cell[0]][cell[1]] = cell[2];
-//     });
-// }
-
-// function updateCells() { 
-//     updatedGrid = [];
-
-//     rectWidth = canvas.width/displayColumnCount;
-//     rectHeight = canvas.height/displayRowCount;
-    
-//     let offsetX;
-//     let offsetY;
-
-//     for(let y = 0; y < rowCount; y++) { 
-//         for(let x = 0; x < columnCount; x++) { 
-//             offsetX = x - originX;
-//             offsetY = y - originY;
-
-//             if(mouseX >= (offsetX * rectWidth) && mouseX < (offsetX * rectWidth) + rectWidth &&
-//             mouseY >= (offsetY * rectHeight) && mouseY < (offsetY * rectHeight) + rectHeight) {
-//                 ctx.fillStyle = highlightColor;
-//                 ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-//                 highlightedCell = [x, y];
-//                 displayGlider(x, y, rotation, offsetX, offsetY);
-//             }
-
-//             if(grid[y][x] > 0 && grid[y][x] < minColorValue) {
-//                 grid[y][x] -= decayRate;
-                
-//                 if(x >= originX && x <= originX + displayColumnCount &&
-//                     y >= originY && y <= originY + displayRowCount) {
-//                         ctx.fillStyle = getColor(x, y);
-//                         ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-//                 }
-//             }
-
-//             let n = getNeighbors(x, y);
-//             updatedGrid.push([x, y, grid[y][x]]);
-
-//             // if(x == 0 && y == 0) {
-//             //     ctx.strokeStyle = "#DCE0D9";
-//             //     ctx.strokeRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
-//             // }
-
-//             if(grid[y][x] < minColorValue) {
-//                 if(n == 3)
-//                     updatedGrid[updatedGrid.length - 1][2] = minColorValue;
-//                 continue;
-//             }
-
-//             if(x >= originX && x <= originX + displayColumnCount &&
-//                y >= originY && y <= originY + displayRowCount) {
-//                 ctx.fillStyle = getColor(x, y);
-//                 ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-//             }
-            
-//             if(outlineCells) {
-//                 ctx.strokeStyle = strokeColor;
-//                 ctx.strokeRect(x * rectWidth, y * rectHeight, rectWidth, rectHeight); 
-//             }
-            
-//             if(debugOptions) {
-//                 ctx.strokeText(`[${x}, ${y}]`, x * rectWidth + 5, y * rectHeight + 10, rectWidth);
-//                 ctx.strokeText(`[Neighbors = ${n}]`, x * rectWidth + 5, y * rectHeight + (rectHeight/2), rectWidth);
-//             }
-            
-//             if(grid[y][x] != 0 && grid[y][x] < 255)
-//                 updatedGrid[updatedGrid.length - 1][2] += colorIncrement;    
-
-//             if(n < 2){
-//                 if(decayToggle)
-//                     updatedGrid[updatedGrid.length - 1][2] = minColorValue - decayRate;
-//                 else 
-//                     updatedGrid[updatedGrid.length - 1][2] = 0;
-//             }
-//             else if (n > 3) {
-            
-//                 if(decayToggle)            
-//                     updatedGrid[updatedGrid.length - 1][2] = minColorValue - decayRate;
-//                 else
-//                     updatedGrid[updatedGrid.length - 1][2] = 0;
-//             }
-//         }
-//     } 
-//     // TODO Find a better way to copy an array by reference and do this all with only one loop if performance becomes an issue
-//     for(let i = 0; i < updatedGrid.length; i++) {
-//         grid[updatedGrid[i][1]][updatedGrid[i][0]] = updatedGrid[i][2];
-//     }
-// } 
- 
 function drawBoundary() {
     ctx.strokeStyle = "white";
     ctx.strokeRect(-originX * rectWidth, -originY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
 }
 
+function updateNeighbor(cellY, cellX, y, x) {
+    if(validCoordinates(y, x)) 
+    {
+        // Living cell neighbor
+        if(values_grid[y][x] >= minColorValue) {
+            neighbors_grid[cellY][cellX]++;
+            return; 
+        }
+
+        // Dead cell neighbor
+        if(neighbors_grid[y][x] == undefined)
+            neighbors_grid[y][x] = 0;
+        
+        neighbors_grid[y][x]++;
+
+        if(neighbors_grid[y][x] == 3)
+            changed_cells.push([y, x]);
+    }
+}
+
+function updateNeighbors(cell) {
+    let cellY = cell[0];
+    let cellX = cell[1];
+    neighbors_grid[cellY][cellX] = 0;
+
+    // Left side
+    let y = cellY + 1;
+    let x = cellX - 1;
+    updateNeighbor(cellY, cellX, y, x); y--;
+    updateNeighbor(cellY, cellX, y, x); y--;
+    updateNeighbor(cellY, cellX, y, x); 
+    
+    // Top
+    x++; updateNeighbor(cellY, cellX, y, x); x++; 
+
+    // Right side
+    updateNeighbor(cellY, cellX, y, x); y++;
+    updateNeighbor(cellY, cellX, y, x); y++;
+    updateNeighbor(cellY, cellX, y, x);
+
+    // Bottom
+    x--; updateNeighbor(cellY, cellX, y, x); 
+
+    let neighbors = neighbors_grid[cellY][cellX];
+    // console.log(`Cell ${cell} has ${neighbors} neighbors`);
+    if(neighbors < 2 || neighbors > 3)
+        changed_cells.push(cell);
+}
+
+function updateGrid() 
+{
+    rectWidth = width/displayColumnCount;
+    rectHeight = height/displayRowCount;
+
+    ctx.strokeStyle = "white";
+    ctx.strokeText(`Drawn cell count: ${non_zero_cells.length}`, 250, 10);
+    changed_cells = [];
+
+
+    for(let i = non_zero_cells.length - 1; i >= 0; i--)
+    {
+        let cell = non_zero_cells[i];
+        let y = cell[0];
+        let x = cell[1];
+
+        if(values_grid[y][x] <= 0) {
+            non_zero_cells.splice(i, 1);
+            continue;
+        }
+        
+        // Drawing based on viewport origin x and y 
+        // TODO REPLACE THIS WITH WEBGL LOGIC
+        offsetX = x - originX;
+        offsetY = y - originY;  
+        if(x >= originX && x <= originX + displayColumnCount &&
+            y >= originY && y <= originY + displayRowCount && values_grid[y][x] > 0) {
+            ctx.fillStyle = getColor(values_grid[y][x]);
+            ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+        } 
+
+        if(values_grid[y][x] < minColorValue) {
+            values_grid[y][x] -= decayRate;
+            continue;
+        }
+        
+        updateNeighbors(cell);
+    }
+
+
+    for(let i = 0; i < changed_cells.length; i++) 
+    {
+        let cell = changed_cells[i];
+        let y = cell[0];
+        let x = cell[1];
+
+        // console.log(`Cell ${cell} changed`);
+        if(values_grid[y][x] >= minColorValue) {
+            // console.log(`Cell ${cell} marked for death`);
+            values_grid[y][x] = 0;
+            continue; 
+        }
+
+        // console.log(`Cell ${cell} marked for BIRTH`);
+        values_grid[y][x] = minColorValue;
+        non_zero_cells.push([y, x]);
+    }
+}
+
+
 setUpGrid();
+var filterStrength = 20;
+var frameTime = 0, lastLoop = new Date, thisLoop;
+
+let width = canvas.width;
+let height = canvas.height;
+
 function updateAndDraw() {
     if(!paused) {
+        // Reset neighbors
+        neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
         ctx.clearRect(0, 0, canvas.width, canvas.height); 
-        ctx.fillStyle = backgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        updateGrid();
 
         drawBoundary();
-        newUpdateCells();
-    findCursor();
-
     }
-    console.log(`nonzeroArray length: ${structuredClone(nonZeroNeighbors).length}\nscannedCells length: ${structuredClone(scannedCells).length}`);
-    setTimeout(updateAndDraw, tickDelay);
+    setTimeout(updateAndDraw, 1);
 }
 updateAndDraw();
+
 
 function priorityDraw() {
     rectWidth = canvas.width/displayColumnCount;
     rectHeight = canvas.height/displayRowCount;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height); 
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // Draw all non cells with more than 0 neighbors
     let offsetX;
     let offsetY;
-    for(let i = nonZeroNeighbors.length - 1; i >= 0; i--) {
-        cell = nonZeroNeighbors[i];
+    for(let i = non_zero_cells.length - 1; i >= 0; i--) {
+        cell = non_zero_cells[i];
         let y = cell[0];
         let x = cell[1];
 
@@ -798,16 +566,14 @@ function priorityDraw() {
 
         // Drawing based on viewport origin x and y 
         if(x >= originX && x <= originX + displayColumnCount &&
-            y >= originY && y <= originY + displayRowCount && cell[2] > 0) {
-            ctx.fillStyle = getColor(cell[2]);
+            y >= originY && y <= originY + displayRowCount && values_grid[y][x] > 0) {
+            ctx.fillStyle = getColor(values_grid[y][x]);
             ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
         }   
-    };
+    }
     
     drawBoundary();
-    findCursor();
 }
-
 
 function drawMouseCircle(y, x) {
 
@@ -821,6 +587,7 @@ function findCursor() {
         for(let x = 0; x < displayColumnCount; x++) {
             if(mouseX >= (x * rectWidth) && mouseX < (x * rectWidth) + rectWidth &&
             mouseY >= (y * rectHeight) && mouseY < (y * rectHeight) + rectHeight) {
+                // if(highlightedCell)
                 highlightedCell = [y + originY, x + originX];
             }
         }
