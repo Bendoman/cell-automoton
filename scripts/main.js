@@ -340,11 +340,11 @@ function setUpGrid() {
     neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
     non_zero_cells = [];
 
-    // birthCell(5, 6);
-    // birthCell(5, 7);
-    // birthCell(5, 8);
+    birthCell(5, 6);
+    birthCell(5, 7);
+    birthCell(5, 8);
 
-    createGlider(10, 10, 4);
+    // createGlider(10, 10, 4);
 }
 //#endregion
 
@@ -474,6 +474,7 @@ function updateGrid()
 
     changed_cells = [];
 
+    ctx.scale(rectWidth, rectHeight);
     for(let i = non_zero_cells.length - 1; i >= 0; i--)
     {
         let cell = non_zero_cells[i];
@@ -492,18 +493,23 @@ function updateGrid()
         if(x >= originX && x <= originX + displayColumnCount &&
             y >= originY && y <= originY + displayRowCount && values_grid[y][x] > 0) {
             ctx.fillStyle = getColor(values_grid[y][x]);
-            ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+            // ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
+            ctx.fillRect(offsetX, offsetY, 1, 1); 
         } 
 
         if(values_grid[y][x] < minColorValue) {
             values_grid[y][x] -= decayRate;
             continue;
         }
-        
         updateNeighbors(cell);
+        
     }
+    ctx.scale(1/rectWidth, 1/rectHeight);
 
 
+
+    ctx.strokeStyle = "white";
+    ctx.strokeText(`changed_cells count: ${changed_cells.length}`, 500, 10);
     for(let i = 0; i < changed_cells.length; i++) 
     {
         let cell = changed_cells[i];
@@ -513,7 +519,11 @@ function updateGrid()
         // console.log(`Cell ${cell} changed`);
         if(values_grid[y][x] >= minColorValue) {
             // console.log(`Cell ${cell} marked for death`);
+            // if(!decayToggle)
+            //     values_grid[y][x] = 50;
+            // else 
             values_grid[y][x] = 0;
+
             continue; 
         }
 
@@ -542,6 +552,7 @@ function updateAndDraw() {
 
 
     // neighbors_grid = [[]];
+    // neighbors_grid = base_grid;
     neighbors_grid = structuredClone(base_grid);
     // neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
     if(!paused) {
@@ -554,7 +565,7 @@ function updateAndDraw() {
     ctx.strokeText(`Drawn cell count: ${non_zero_cells.length}`, 250, 10);
     ctx.strokeText(`FPS: ${(1000/frameTime).toFixed(1)}`, 10, 10);
     // setTimeout(updateAndDraw, tickDelay);
-    // debugger;
+    debugger;
     window.requestAnimationFrame(updateAndDraw);
 }
 updateAndDraw();
