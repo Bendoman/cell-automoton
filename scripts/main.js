@@ -82,7 +82,8 @@ let originY = -2;
 // TODO Color fadeout, very easy.
 let minColorValue = 255;
 let colorIncrement = 15;
-let decayRate = 15;
+// TODO CUSTOM DECAY RATE SLIDER
+let decayRate = 5;
 let decayToggle = false;
 
 let backgroundColor = '#343d46';
@@ -333,6 +334,7 @@ function birthCell(y, x) {
 
     non_zero_cells.push([y, x]);
     values_grid[y][x] = minColorValue;
+    neighbors_grid[y][x] = 0;
 }
 
 function setUpGrid() {    
@@ -340,11 +342,11 @@ function setUpGrid() {
     neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
     non_zero_cells = [];
 
-    birthCell(5, 6);
-    birthCell(5, 7);
-    birthCell(5, 8);
+    birthCell(1, 0);
+    birthCell(1, 1);
+    birthCell(1, 2);
 
-    // createGlider(10, 10, 4);
+    createGlider(10, 10, 4);
 }
 //#endregion
 
@@ -421,20 +423,27 @@ function drawBoundary() {
 function updateNeighbor(cellY, cellX, y, x) {
     if(validCoordinates(y, x)) 
     {
-        // Living cell neighbor
-        if(values_grid[y][x] >= minColorValue) {
-            neighbors_grid[cellY][cellX]++;
-            return; 
-        }
-
-        // Dead cell neighbor
-        if(neighbors_grid[y][x] == undefined)
-            neighbors_grid[y][x] = 0;
         
-        neighbors_grid[y][x]++;
+        // Living cell neighbor
+        if(values_grid[y][x] >= minColorValue) 
+        {
+            neighbors_grid[cellY][cellX]++;
+        } 
+        else 
+        {
+            if(neighbors_grid[y][x] == undefined)
+                neighbors_grid[y][x] = 0;
+            if(values_grid[y][x] == undefined)
+                values_grid[y][x] = 0;
 
-        if(neighbors_grid[y][x] == 3)
-            changed_cells.push([y, x]);
+            // Dead cell neighbor
+            neighbors_grid[y][x]++;
+            // console.log(`Dead cell ${[y,x]} updated neighbors to ${neighbors_grid[y][x]}`)
+            if(neighbors_grid[y][x] == 3)
+                changed_cells.push([y, x]);
+
+        }
+        
     }
 }
 
@@ -442,6 +451,7 @@ function updateNeighbors(cell) {
     let cellY = cell[0];
     let cellX = cell[1];
     neighbors_grid[cellY][cellX] = 0;
+    // console.log(`Cell ${cell} updating neighbors`);
 
     // Left side
     let y = cellY + 1;
@@ -462,10 +472,11 @@ function updateNeighbors(cell) {
     x--; updateNeighbor(cellY, cellX, y, x); 
 
     let neighbors = neighbors_grid[cellY][cellX];
-    if(neighbors < 2 || neighbors > 3)
+    if(neighbors < 2 || neighbors > 3) 
         changed_cells.push(cell);
 }
 
+let updatedGrid = [];
 function updateGrid() 
 {
     rectWidth = width/displayColumnCount;
@@ -480,11 +491,6 @@ function updateGrid()
         let cell = non_zero_cells[i];
         let y = cell[0];
         let x = cell[1];
-
-        if(values_grid[y][x] == 0) {
-            non_zero_cells.splice(i, 1);
-            continue;
-        }
         
         // Drawing based on viewport origin x and y 
         // TODO REPLACE THIS WITH WEBGL LOGIC
@@ -496,20 +502,31 @@ function updateGrid()
             // ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
             ctx.fillRect(offsetX, offsetY, 1, 1); 
         } 
+        if(values_grid[y][x] <= 0) {
+            non_zero_cells.splice(i, 1);
+            continue;
+        }
+        
 
         if(values_grid[y][x] < minColorValue) {
             values_grid[y][x] -= decayRate;
             continue;
         }
-        updateNeighbors(cell);
+
+        if(values_grid[y][x] >= minColorValue)
+            updateNeighbors(cell);  
         
     }
     ctx.scale(1/rectWidth, 1/rectHeight);
 
+    changedLoop();
 
 
+}
+
+function changedLoop() {
     ctx.strokeStyle = "white";
-    ctx.strokeText(`changed_cells count: ${changed_cells.length}`, 500, 10);
+    // ctx.strokeText(`changed_cells count: ${changed_cells.length}`, 500, 10);
     for(let i = 0; i < changed_cells.length; i++) 
     {
         let cell = changed_cells[i];
@@ -519,18 +536,19 @@ function updateGrid()
         // console.log(`Cell ${cell} changed`);
         if(values_grid[y][x] >= minColorValue) {
             // console.log(`Cell ${cell} marked for death`);
-            // if(!decayToggle)
-            //     values_grid[y][x] = 50;
-            // else 
-            values_grid[y][x] = 0;
+            if(decayToggle)
+                values_grid[y][x] = minColorValue - decayRate;
+            else 
+                values_grid[y][x] = 0;
 
             continue; 
         }
 
-        // console.log(`Cell ${cell} marked for BIRTH`);
         if(neighbors_grid[y][x] == 3) {
+            // console.log(`Cell ${cell} marked for BIRTH: Value ${values_grid[y][x]}`);
+            if(values_grid[y][x] == 0)
+                non_zero_cells.push([y, x]);
             values_grid[y][x] = minColorValue;
-            non_zero_cells.push([y, x]);
         }
     }
 }
@@ -565,7 +583,8 @@ function updateAndDraw() {
     ctx.strokeText(`Drawn cell count: ${non_zero_cells.length}`, 250, 10);
     ctx.strokeText(`FPS: ${(1000/frameTime).toFixed(1)}`, 10, 10);
     // setTimeout(updateAndDraw, tickDelay);
-    debugger;
+    // console.log("\n==========\n")
+    // debugger;
     window.requestAnimationFrame(updateAndDraw);
 }
 updateAndDraw();
