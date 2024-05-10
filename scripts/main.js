@@ -1,641 +1,325 @@
-// Customizable conways game of life simulator.
-// You will be able to adjust zoom level, place down individual blocks, play and pause the simulation, change the color rules, change the reproduction rules.
-// Select from preset starter builds and save their own for later. 
+// #region ( Canvas Setup )
+let display_canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas'));
+let display_ctx = display_canvas.getContext("2d");
 
-//#region ( Canvas Setup )
-let canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('canvas'));
-let ctx = canvas.getContext("2d");
+var canvas = document.createElement('canvas');
+let ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+let width = window.innerWidth;
+let height = window.innerHeight;
+
+
+
+
+display_canvas.width = width;
+display_canvas.height = height;
+
+width = 1920;
+height = 1080;
+canvas.width = width;
+canvas.height = height;
 
 window.addEventListener("resize", (e) => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // width = window.innerWidth;
+    // height = window.innerHeight;
+    // canvas.width = width;
+    // canvas.height = height;
+    display_canvas.width = window.innerWidth;
+    display_canvas.height = window.innerHeight;
 });
-//#endregion
-
-//#region ( Elements )
-let lock_toggle_on = false;
-let toggle = document.getElementById("sidebar_expand");
-let canvas_container = document.getElementById("canvas_container");
-let sidebar = document.getElementById("sidebar");
-
-let fastforward_counter = document.getElementById("fastforward_counter");
-let trail_toggle_checkbox = document.getElementById("trail_toggle_checkbox");
-trail_toggle_checkbox.checked = false;
-let clear_grid_button = document.getElementById("clear_grid_button");
-
-let play_svg = document.getElementById("play_svg");
-let pause_svg = document.getElementById("pause_svg");
-let rewind_svg = document.getElementById("rewind_svg");
-let fastforward_svg = document.getElementById("fastforward_svg");
-let controls_container = document.getElementById("controls_container");
-//#endregion
-
-//#region ( Helper Methods )
-// Gets the cursors x and y positions on the provided canvas based on event trigger
-function getCursorPosition(canvas, event) {
-    const rect = canvas.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
-
-    let mousePos = {
-      x: x,
-      y: y
-    };
-    
-    return mousePos;
-}
-//#endregion
-
-//#region ( Variables )
-let cellSize = 35;
-let boardOriginX = 0;
-let boardOriginY = 0; 
-
-let imageScaling = 1;
-let scrollSpeed = 2;
-// let zoomspeed = 5;
-
-let baseTickDelay = 100;
-let tickDelay = baseTickDelay;
-
-let counterValue = 7;
-let delayIncrement = 25;
-let paused = false;
-
-let debugOptions = false;
-let outlineCells = false;
-
-// Grid variables
-let rowCount = 1000;
-let columnCount = 1000;
-
-let displayRowCount = 9*10;
-let displayColumnCount = 16*10;
-
-let originX = -2;
-let originY = -2;
-
-// Color code values
-// TODO Color fadeout, very easy.
-let minColorValue = 255;
-let colorIncrement = 15;
-// TODO CUSTOM DECAY RATE SLIDER
-let decayRate = 5;
-let decayToggle = false;
-
-let backgroundColor = '#343d46';
-let strokeColor = '#FFF';
-let highlightColor = "rgb(255, 100, 0)"
-let highlightedCell = [];
-
-let rotation = 1;
-
-//#region ( TODO Board )
-// TODO Interpret JSON object as automoton
-// TODO Store JSON in browser db
-// TODO Display ghost of automoton to place
-// TODO Section to the side, css transition on collapse animation.
-// TODO Update canvas size accordingly
-// TODO Scroll based on number of cells dragged across
-
-// TODO Remove width definition from elements so that it is responsive
-// TODO Birth on phone pointerup at x and y
-// TODO Pinch zoom for phone
-
-// TODO FPS and cell counters
-
-// TODO Fix sidebar content scrolling
-
-// TODO Split live cell rules and read cell rules into seperate functions
-
-// TODO Pause returns gamespeed to previous and add a slowdown button
-
-// TODO Check live cell and all its dead neighbors instead of every single cell.
-
-// TODO Have reset grid set it back to what it was before playing the simulation ( If paused and cleared ) 
-// TODO Extended, have STOP button to make this more clear, with tooltip.
-// TODO ctrl z + ctrl y ( Only works while paused )
-
-// TODO Drag to spawn option
-// TODO rick click to delete
+// #endregion
 
 
-// TODO:DONE Highlight selected playback option
-
-// TODO Fix reset grid pause bug 
-//#endregion
-
-
-// grid = Array.apply(null, Array(rowCount)).map(function () {})
-
-// To zoom in or out, create a new grid with the updated row and column count and transpose the old onto new 
-// ( smaller grid can be applied directly overtop, smaller grid much the same just with check to see if index exists )
-let rectWidth;
-let rectHeight;
-
-//#region ( Event Listeners )
-window.addEventListener("resize", (e) => { priorityDraw(); });
-
-//#region ( Failed Drag to Move )
-let dragActive = false; 
-canvas.addEventListener("pointerdown", (e) => {
-    findCursor();
-    if(highlightedCell != null) {
-
-        for(let i = 0; i < columnCount/2; i++) {
-            birthCell(highlightedCell[0], highlightedCell[1] + i);
-        }
-        priorityDraw(); 
-    }
-    dragActive = true; 
-});
-
-canvas.addEventListener("pointerup", (e) => { dragActive = false; })
-
-let mouseX;
-let mouseY;
-let previousHighlightedCell = [];
-canvas.addEventListener("pointermove", (e) => {
-    let mousePos = getCursorPosition(canvas, e);
-    mouseX = mousePos.x;
-    mouseY = mousePos.y;
- 
-    // findCursor();
-    
-    // if(!dragActive || (highlightedCell[0] == previousHighlightedCell[0] && highlightedCell[1] == previousHighlightedCell[1]))
-    //     return
-    // birthCell(highlightedCell[0], highlightedCell[1]);
-
-
-    // priorityDraw()      
-});
-//#endregion
-
-canvas.addEventListener("wheel", (e) => {
-    if(e.deltaY > 0) {
-        displayRowCount += 9;
-        displayColumnCount += 16;
-    }
-    else if(e.deltaY < 0 && displayRowCount > 0 && displayColumnCount - 16 > 0) {
-        displayRowCount -= 9;
-        displayColumnCount -= 16;
-    }
-    priorityDraw();
-});
-
-window.addEventListener("keypress", (e) => {
-    if(e.code == "Space") {
-        paused = !paused
-
-        if(paused) {
-            play_svg.classList.remove("controls_selected");
-        } else {
-            play_svg.classList.add("controls_selected");
-        }
-         
-        pause_svg.classList.toggle("controls_selected");
-    }
-});
-
-
-let map = {};
-window.addEventListener("keydown", (e) => {
-    map[e.code] = e.type == 'keydown';
-
-    if(map["KeyW"] || map["ArrowUp"])
-        originY -= scrollSpeed; 
-
-    if(map["KeyS"] || map["ArrowDown"])
-        originY += scrollSpeed; 
-
-    if(map["KeyA"] || map["ArrowLeft"])
-        originX -= scrollSpeed; 
-
-    if(map["KeyD"] || map["ArrowRight"])
-        originX += scrollSpeed; 
-    
-    if(map["KeyR"]) {
-        if(rotation < 3)
-            rotation++;
-        else if(rotation == 3)
-            rotation = 0;
-    }
-
-    priorityDraw();
-});
-
-window.addEventListener("keyup", (e) => {
-    map[e.code] = e.type == 'keydown';
-});
-
-function expand_onclick() {
-    toggle.classList.add("hidden");
-    sidebar.classList.add("expanded");
+// Much faster removal of elements from an array
+Array.prototype.swapAndPop = function swapAndPop (index) {
+    this[index] = this[this.length - 1];
+    this.pop();
 }
 
-function collapse_onclick() {
-    toggle.classList.remove("hidden");
-    sidebar.classList.remove("expanded");
-}
+function validCoordinates(x, y) { return !(x <= 0 || x >= width || y <= 0 || y >= height) }
 
-function pause_onclick() { 
-    play_svg.classList.remove("controls_selected");
-    rewind_svg.classList.remove("controls_selected");
-    fastforward_svg.classList.remove("controls_selected");
-    
-    pause_svg.classList.add("controls_selected");
+// Initial state setup
+// ctx.fillStyle = "white";
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+const initialState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+const initialStateData = initialState.data;
 
-    paused = true; 
-}
-
-function play_onclick() { 
-    pause_svg.classList.remove("controls_selected");
-    fastforward_svg.classList.remove("controls_selected");
-    rewind_svg.classList.remove("controls_selected");
-    
-    play_svg.classList.add("controls_selected");
-
-    paused = false; 
-}
-
-function fastforward_onclick() { 
-    if(paused) {
-        pause_svg.classList.remove("controls_selected");
-        play_svg.classList.add("controls_selected");
-    }
-    paused = false; 
-
-    if(tickDelay - delayIncrement < 10) 
-        return;
-
-    tickDelay -= delayIncrement;
-}
-
-function rewind_onclick() {
-    if(paused) {
-        pause_svg.classList.remove("controls_selected");
-        play_svg.classList.add("controls_selected");
-    }
-    paused = false; 
-    
-    if(tickDelay + delayIncrement > 300)
-        return;
-
-    tickDelay += delayIncrement;
-}
-
-function trail_toggle_onclick() { decayToggle = trail_toggle_checkbox.checked; }
-
-function clear_grid_onclick() {
-    values_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    non_zero_cells = [];
+// initialStateData[(0 + 2 * canvas.width) * 4] = 255;// red
+// initialStateData[(1 + 2 * canvas.width) * 4] = 255;// red
+// initialStateData[(2 + 2 * canvas.width) * 4] = 255;// red
+// initialStateData[(2 + 1 * canvas.width) * 4] = 255;// red
+// initialStateData[(1 + 0 * canvas.width) * 4] = 255;// red
+// initialStateData[(151 + 151 * canvas.width) * 4] = 255;// red
+// initialStateData[(152 + 151 * canvas.width) * 4] = 255;// red
 
 
-    priorityDraw();
-    clear_grid_button.blur();
-}
-
-function reset_grid_onclick() {
-    values_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    non_zero_cells = [];
-
-    priorityDraw();
-    clear_grid_button.blur();
-}
-
-function recenter_onclick() {
-    originX = -2;
-    originY = -2;
-    priorityDraw();
-}
-
-function reset_zoom_onclick() {
-    displayRowCount = 9*10;
-    displayColumnCount = 16*10;
-    priorityDraw();
-}
-//#endregion
+// initialStateData[(0 + 0 * canvas.width) * 4] = 255;// red
+// initialStateData[(1 + 0 * canvas.width) * 4] = 255;// red
+// initialStateData[(0 + 1 * canvas.width) * 4] = 255;// red
+// initialStateData[(0 + 2 * canvas.width) * 4] = 255;// red
 
 
+// Setting initial state cells to non zero array
+let nonZeroArray = [];
+// nonZeroArray.push([0, 0]);
+// nonZeroArray.push([1, 0]);
+// nonZeroArray.push([0, 1]);
+// nonZeroArray.push([0, 2]);
 
-let values_grid = [];
-let neighbors_grid = [];
-
-let changed_cells = [];
-let non_zero_cells = [];
-function birthCell(y, x) {
-    if(!validCoordinates(y, x))  
-        return; 
-
-    non_zero_cells.push([y, x]);
-    values_grid[y][x] = minColorValue;
-    neighbors_grid[y][x] = 0;
-}
-
-function setUpGrid() {    
-    values_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    non_zero_cells = [];
-
-    birthCell(1, 0);
-    birthCell(1, 1);
-    birthCell(1, 2);
-
-    createGlider(10, 10, 4);
-}
-//#endregion
-
-//#region ( Automoton Factories )
-// Somehow do rotation
-function createGlider(x, y, rotation) {
-    // Point of origin
-    birthCell(y, x);
-
-    let yOffset = 1;
-    let xOffset = 1; 
-    if(rotation == 1) {
-        yOffset = 1;
-        xOffset = -1; 
-    } else if (rotation == 3) {
-        yOffset = -1;
-        xOffset = 1; 
-    } else if (rotation == 2) {
-        yOffset = -1;
-        xOffset = -1; 
-    }
+// nonZeroArray.push([0, 2]);
+// nonZeroArray.push([1, 2]);
+// nonZeroArray.push([2, 2]);
+// nonZeroArray.push([2, 1]);
+// nonZeroArray.push([1, 0]);
+// nonZeroArray.push([151, 151]);
+// nonZeroArray.push([152, 151]);
+// nonZeroArray.push([155, 150]);
+// nonZeroArray.push([156, 150]);
+// nonZeroArray.push([157, 150]);
 
 
-    birthCell(y + (1*yOffset), x);
-    birthCell(y + (2*yOffset), x);
-
-    birthCell(y + (2*yOffset), x - (1*xOffset));
-    birthCell(y + (1*yOffset), x - (2*xOffset));
-}
-
-function displayGlider(x, y, rotation, offsetX, offsetY) {
-    let yOffset = 1;
-    let xOffset = 1; 
-    if(rotation == 1) {
-        yOffset = 1;
-        xOffset = -1; 
-    } else if (rotation == 3) {
-        yOffset = -1;
-        xOffset = 1; 
-    } else if (rotation == 2) {
-        yOffset = -1;
-        xOffset = -1; 
-    }
-
-    ctx.fillStyle = highlightColor;
-    // [y + (1*yOffset)][x]
-    ctx.fillRect(offsetX * rectWidth, ((offsetY + 1*yOffset) * rectHeight), rectWidth, rectHeight); 
-
-    // [y + (1*yOffset)][x - (2*xOffset)]
-    ctx.fillRect((offsetX - (2*xOffset)) * rectWidth, ((offsetY + 1*yOffset) * rectHeight), rectWidth, rectHeight); 
-
-    // [y + (2*yOffset)][x]
-    ctx.fillRect(offsetX * rectWidth, ((offsetY + 2*yOffset) * rectHeight), rectWidth, rectHeight); 
-
-    // [y + (2*yOffset)][x - (1*xOffset)]
-    ctx.fillRect((offsetX - (1*xOffset)) * rectWidth, ((offsetY + 2*yOffset) * rectHeight), rectWidth, rectHeight); 
-}
-//#endregion
-
-//#region ( Loop logic )
-function getColor(hex) {
-    return `rgb(${hex}, 0, ${hex})`
-}
-
-function validCoordinates(y, x) {
-    return !(y < 0 || y >= rowCount || x < 0 || x >= columnCount);
-} 
-
-function drawBoundary() {
-    ctx.strokeStyle = "white";
-    ctx.strokeRect(-originX * rectWidth, -originY * rectHeight, rectWidth*columnCount, rectHeight*rowCount)
-}
-
-function updateNeighbor(cellY, cellX, y, x) {
-    if(validCoordinates(y, x)) 
-    {
-        
-        // Living cell neighbor
-        if(values_grid[y][x] >= minColorValue) 
-        {
-            neighbors_grid[cellY][cellX]++;
-        } 
-        else 
-        {
-            if(neighbors_grid[y][x] == undefined)
-                neighbors_grid[y][x] = 0;
-            if(values_grid[y][x] == undefined)
-                values_grid[y][x] = 0;
-
-            // Dead cell neighbor
-            neighbors_grid[y][x]++;
-            // console.log(`Dead cell ${[y,x]} updated neighbors to ${neighbors_grid[y][x]}`)
-            if(neighbors_grid[y][x] == 3)
-                changed_cells.push([y, x]);
-
-        }
-        
-    }
-}
-
-function updateNeighbors(cell) {
-    let cellY = cell[0];
-    let cellX = cell[1];
-    neighbors_grid[cellY][cellX] = 0;
-    // console.log(`Cell ${cell} updating neighbors`);
-
-    // Left side
-    let y = cellY + 1;
-    let x = cellX - 1;
-    updateNeighbor(cellY, cellX, y, x); y--;
-    updateNeighbor(cellY, cellX, y, x); y--;
-    updateNeighbor(cellY, cellX, y, x); 
-    
-    // Top
-    x++; updateNeighbor(cellY, cellX, y, x); x++; 
-
-    // Right side
-    updateNeighbor(cellY, cellX, y, x); y++;
-    updateNeighbor(cellY, cellX, y, x); y++;
-    updateNeighbor(cellY, cellX, y, x);
-
-    // Bottom
-    x--; updateNeighbor(cellY, cellX, y, x); 
-
-    let neighbors = neighbors_grid[cellY][cellX];
-    if(neighbors < 2 || neighbors > 3) 
-        changed_cells.push(cell);
-}
-
-let updatedGrid = [];
-function updateGrid() 
+for(let x = 1; x < width - 1; x++)
 {
-    rectWidth = width/displayColumnCount;
-    rectHeight = height/displayRowCount;
-
-
-    changed_cells = [];
-
-    ctx.scale(rectWidth, rectHeight);
-    for(let i = non_zero_cells.length - 1; i >= 0; i--)
-    {
-        let cell = non_zero_cells[i];
-        let y = cell[0];
-        let x = cell[1];
-        
-        // Drawing based on viewport origin x and y 
-        // TODO REPLACE THIS WITH WEBGL LOGIC
-        offsetX = x - originX;
-        offsetY = y - originY;  
-        if(x >= originX && x <= originX + displayColumnCount &&
-            y >= originY && y <= originY + displayRowCount && values_grid[y][x] > 0) {
-            ctx.fillStyle = getColor(values_grid[y][x]);
-            // ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-            ctx.fillRect(offsetX, offsetY, 1, 1); 
-        } 
-        if(values_grid[y][x] <= 0) {
-            non_zero_cells.splice(i, 1);
-            continue;
-        }
-        
-
-        if(values_grid[y][x] < minColorValue) {
-            values_grid[y][x] -= decayRate;
-            continue;
-        }
-
-        if(values_grid[y][x] >= minColorValue)
-            updateNeighbors(cell);  
-        
-    }
-    ctx.scale(1/rectWidth, 1/rectHeight);
-
-    changedLoop();
-
-
+    initialStateData[(x + (height - 50) * width) * 4] = 255;
+    nonZeroArray.push([x, (height - 50)]);
 }
 
-function changedLoop() {
-    ctx.strokeStyle = "white";
-    // ctx.strokeText(`changed_cells count: ${changed_cells.length}`, 500, 10);
-    for(let i = 0; i < changed_cells.length; i++) 
-    {
-        let cell = changed_cells[i];
-        let y = cell[0];
-        let x = cell[1];
-
-        // console.log(`Cell ${cell} changed`);
-        if(values_grid[y][x] >= minColorValue) {
-            // console.log(`Cell ${cell} marked for death`);
-            if(decayToggle)
-                values_grid[y][x] = minColorValue - decayRate;
-            else 
-                values_grid[y][x] = 0;
-
-            continue; 
-        }
-
-        if(neighbors_grid[y][x] == 3) {
-            // console.log(`Cell ${cell} marked for BIRTH: Value ${values_grid[y][x]}`);
-            if(values_grid[y][x] == 0)
-                non_zero_cells.push([y, x]);
-            values_grid[y][x] = minColorValue;
-        }
-    }
+for(let y = 1; y < height; y++)
+{
+    initialStateData[(width/2 + y * width) * 4] = 255;
+    nonZeroArray.push([width/2, y]);
 }
 
+for(let x = 1; x < width; x++)
+{
+    initialStateData[(x + height/2 * width) * 4] = 255;
+    nonZeroArray.push([x, height/2]);
+}
 
-setUpGrid();
-var filterStrength = 20;
-var frameTime = 0, lastLoop = new Date, thisLoop;
+// for(let x = 1; x < width; x++)
+// {
+//     initialStateData[(x + ((height/2)+100) * width) * 4] = 255;
+//     nonZeroArray.push([x, height/2+100]);
+// }
 
-let width = canvas.width;
-let height = canvas.height;
 
-base_grid = [...Array(rowCount)].map(e => Array(columnCount));
-function updateAndDraw() {
 
+// for(let y = 1; y < height; y++)
+// {
+//     initialStateData[(400 + y * width) * 4] = 255;
+//     nonZeroArray.push([400, y]);
+// }
+
+// for(let x = 1; x < width; x++)
+// {
+//     initialStateData[(x + 700 * width) * 4] = 255;
+//     nonZeroArray.push([x, 700]);
+// }
+
+// for(let x = 1; x < width - 1; x+=2)
+// {
+//     for(let y = 1; y < height - 1; y++)
+//     {
+//         initialStateData[(x + y * width) * 4] = 255;
+//         nonZeroArray.push([x, y]);
+//     }
+// }
+ctx.putImageData(initialState, 0, 0);
+
+
+// Potentially uncomment
+// function updateNeighbors(x, y, currentState, nextState) 
+// {
+
+//     return [currentState, nextState];
+// }
+let filterStrength = 20;
+let frameTime = 0, lastLoop = new Date, thisLoop;
+let currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+let currentStateData = currentState.data;
+
+function updateLoop()
+{
     var thisFrameTime = (thisLoop=new Date) - lastLoop;
     frameTime+= (thisFrameTime - frameTime) / filterStrength;
     lastLoop = thisLoop;
 
+    let nextStateData = currentStateData.slice(0, currentStateData.length);
 
-    // neighbors_grid = [[]];
-    // neighbors_grid = base_grid;
-    neighbors_grid = structuredClone(base_grid);
-    // neighbors_grid = [...Array(rowCount)].map(e => Array(columnCount));
-    if(!paused) {
-        // Reset neighbors
-        ctx.clearRect(0, 0, canvas.width, canvas.height); 
-        updateGrid();
-        drawBoundary();
-    }
-    ctx.strokeStyle = "white";
-    ctx.strokeText(`Drawn cell count: ${non_zero_cells.length}`, 250, 10);
-    ctx.strokeText(`FPS: ${(1000/frameTime).toFixed(1)}`, 10, 10);
-    // setTimeout(updateAndDraw, tickDelay);
-    // console.log("\n==========\n")
-    // debugger;
-    window.requestAnimationFrame(updateAndDraw);
-}
-updateAndDraw();
+    // Tail decay for future
+    for(let i = 0; i < nextStateData.length; i+=4) { nextStateData[i + 1] -= 1; }
 
+    // (x + y * width) * 4
+    // Address any pixel on the screen with x y coordinates
+    for(let i = nonZeroArray.length - 1; i >= 0; i--)
+    {
+        let x = nonZeroArray[i][0];
+        let y = nonZeroArray[i][1];
 
-function priorityDraw() {
-    rectWidth = canvas.width/displayColumnCount;
-    rectHeight = canvas.height/displayRowCount;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height); 
-    
-    // Draw all non cells with more than 0 neighbors
-    let offsetX;
-    let offsetY;
-    for(let i = non_zero_cells.length - 1; i >= 0; i--) {
-        cell = non_zero_cells[i];
-        let y = cell[0];
-        let x = cell[1];
-
-        offsetX = x - originX;
-        offsetY = y - originY;  
-
-        // Drawing based on viewport origin x and y 
-        if(x >= originX && x <= originX + displayColumnCount &&
-            y >= originY && y <= originY + displayRowCount && values_grid[y][x] > 0) {
-            ctx.fillStyle = getColor(values_grid[y][x]);
-            ctx.fillRect(offsetX * rectWidth, offsetY * rectHeight, rectWidth, rectHeight); 
-        }   
-    }
-    
-    drawBoundary();
-}
-
-function drawMouseCircle(y, x) {
-
-}
-
-function findCursor() {
-    rectWidth = canvas.width/displayColumnCount;
-    rectHeight = canvas.height/displayRowCount;
-
-    for(let y = 0; y < displayRowCount; y++) {
-        for(let x = 0; x < displayColumnCount; x++) {
-            if(mouseX >= (x * rectWidth) && mouseX < (x * rectWidth) + rectWidth &&
-            mouseY >= (y * rectHeight) && mouseY < (y * rectHeight) + rectHeight) {
-                // if(highlightedCell)
-                highlightedCell = [y + originY, x + originX];
-            }
+        if(currentStateData[(x + y * width) * 4] == 0) {
+            nonZeroArray.swapAndPop(i);
+            // nonZeroArray.splice(i, 1);
+            continue;
         }
+        
+        let topLeft = validCoordinates(x-1, y-1) ? currentStateData[((x-1) + (y-1) * width) * 4] : -1;
+        let middleLeft = validCoordinates(x-1, y) ? currentStateData[((x-1) + (y) * width) * 4] : -1;
+        let bottomLeft = validCoordinates(x-1, y+1) ? currentStateData[((x-1) + (y+1) * width) * 4] : -1;
+
+        let topRight = validCoordinates(x+1, y-1) ? currentStateData[((x+1) + (y-1) * width) * 4] : -1;
+        let middleRight = validCoordinates(x+1, y) ? currentStateData[((x+1) + (y) * width) * 4] : -1;
+        let bottomRight = validCoordinates(x+1, y+1) ? currentStateData[((x+1) + (y+1) * width) * 4] : -1;
+
+        let top = validCoordinates(x, y-1) ? currentStateData[((x) + (y-1) * width) * 4] : -1;
+        let bottom = validCoordinates(x, y+1) ? currentStateData[((x) + (y+1) * width) * 4] : -1;
+
+        let sum = topLeft  + middleLeft  + bottomLeft  + 
+                  topRight + middleRight + bottomRight + 
+                  top + bottom;
+
+        if(sum/250 < 2 || sum > (255 * 3)) {
+            nextStateData[(x + y * width) * 4] = 0;
+            nextStateData[(x + y * width) * 4 + 1] = 200;
+        }
+        
+        //console.log(`Cell ${[x, y]} neighbor count at ${sum}`);
+        // #region ( Left side )
+        x--;
+        y++;
+        if(bottomLeft != -1 && bottomLeft < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }  
+        y--;
+        if(middleLeft != -1 && middleLeft < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }
+        y--;
+        if(topLeft != -1 && topLeft < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }
+        // #endregion
+
+        
+        // #region ( Top )
+        x++
+        if(top != -1 && top < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }    
+        // #endregion
+
+        // #region ( Right side )
+        x++;
+        if(topRight != -1 && topRight < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }
+        y++;
+        if(middleRight != -1 && middleRight < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }
+        y++;
+        if(bottomRight != -1 && bottomRight < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        }  
+        // #endregion
+        
+        // #region ( Bottom )
+        x--;
+        if(bottom != -1 && bottom < 255 && currentStateData[((x + y * width) * 4) + 2] < 4)
+        {
+            currentStateData[((x + y * width) * 4) + 2]++;
+            //console.log(`Cell ${[x, y]} adding neighbor, count at: ${currentStateData[((x + y * width) * 4) + 2]}`);
+            if(currentStateData[((x + y * width) * 4) + 2] == 3) 
+            {
+                nonZeroArray[nonZeroArray.length] = [x, y];
+                nextStateData[(x + y * width) * 4] = 255;
+            }
+            else if(currentStateData[((x + y * width) * 4) + 2] > 3) 
+                nextStateData[(x + y * width) * 4] = 0;
+        } 
+        // #endregion
     }
+
+    currentState.data.set(nextStateData);
+    ctx.putImageData(currentState, 0, 0);
+
+    display_ctx.scale(window.innerWidth/width, window.innerHeight/height);
+    display_ctx.drawImage(canvas, 0, 0);
+    display_ctx.scale(1/(window.innerWidth/width), 1/(window.innerHeight/height));
+
+
+    // display_ctx.scale(6, 6);
+    display_ctx.clearRect(0, 0, 200, 20);
+    display_ctx.strokeStyle = "green";
+    display_ctx.strokeText(`FPS: ${(1000/frameTime).toFixed(1)}`, 10, 10);
+    display_ctx.strokeText(`cell count: ${nonZeroArray.length.toLocaleString()}`, 75, 10);
+    // display_ctx.scale(1/6, 1/6);
+    
+    window.requestAnimationFrame(updateLoop);
 }
-//#endregion
+// display_ctx.scale(5, 5);
+display_ctx.imageSmoothingEnabled = false;
 
-
+window.requestAnimationFrame(updateLoop);
